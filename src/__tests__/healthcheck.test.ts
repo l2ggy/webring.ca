@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { runHealthCheck } from '../cron/healthcheck'
+import { detectWidget } from '../utils/widget'
 import { createMockKV } from './kv-mock'
 import type { Member, HealthStatus } from '../types'
+
+const VALID_WIDGET = '<div data-webring="ca" data-member="alice"></div><a href="https://webring.ca/prev/alice">prev</a><a href="https://webring.ca/next/alice">next</a><script src="https://webring.ca/embed.js"></script>'
 
 const alice: Member = { slug: 'alice', name: 'Alice', url: 'https://alice.example.com', type: 'developer', active: true }
 const bob: Member = { slug: 'bob', name: 'Bob', url: 'https://bob.example.com', type: 'designer', active: true }
@@ -30,11 +33,51 @@ function mockFetch(responses: Record<string, { ok: boolean; status: number; body
   }) as typeof fetch
 }
 
+describe('detectWidget', () => {
+  it('detects valid widget with marker and links', () => {
+    expect(detectWidget(VALID_WIDGET)).toBe(true)
+  })
+
+  it('detects widget with embed script and links', () => {
+    const html = '<script src="https://webring.ca/embed.js"></script><a href="https://webring.ca/prev/alice">prev</a><a href="https://webring.ca/next/alice">next</a>'
+    expect(detectWidget(html)).toBe(true)
+  })
+
+  it('rejects marker hidden in HTML comment', () => {
+    const html = '<!-- <div data-webring="ca"></div> --><a href="https://webring.ca/prev/alice">prev</a><a href="https://webring.ca/next/alice">next</a>'
+    expect(detectWidget(html)).toBe(false)
+  })
+
+  it('rejects marker without prev/next links', () => {
+    const html = '<div data-webring="ca"></div><script src="https://webring.ca/embed.js"></script>'
+    expect(detectWidget(html)).toBe(false)
+  })
+
+  it('rejects prev/next links without marker', () => {
+    const html = '<a href="https://webring.ca/prev/alice">prev</a><a href="https://webring.ca/next/alice">next</a>'
+    expect(detectWidget(html)).toBe(false)
+  })
+
+  it('rejects when only prev link is present', () => {
+    const html = '<div data-webring="ca"></div><a href="https://webring.ca/prev/alice">prev</a>'
+    expect(detectWidget(html)).toBe(false)
+  })
+
+  it('rejects when only next link is present', () => {
+    const html = '<div data-webring="ca"></div><a href="https://webring.ca/next/alice">next</a>'
+    expect(detectWidget(html)).toBe(false)
+  })
+
+  it('rejects empty page', () => {
+    expect(detectWidget('<html></html>')).toBe(false)
+  })
+})
+
 describe('runHealthCheck', () => {
   it('marks members as ok when site is reachable with widget', async () => {
     const kv = createMockKV({ members: JSON.stringify([alice]) })
     mockFetch({
-      'https://alice.example.com': { ok: true, status: 200, body: '<div data-webring="ca" data-member="alice"></div><script src="https://webring.ca/embed.js"></script>' },
+      'https://alice.example.com': { ok: true, status: 200, body: VALID_WIDGET },
     })
 
     await runHealthCheck(kv)
@@ -58,6 +101,45 @@ describe('runHealthCheck', () => {
     const status: HealthStatus = JSON.parse(raw!)
     expect(status.status).toBe('widget_missing')
     expect(status.consecutiveFails).toBe(1)
+  })
+
+  it('marks as widget_missing when marker is in a comment', async () => {
+    const kv = createMockKV({ members: JSON.stringify([alice]) })
+    mockFetch({
+      'https://alice.example.com': { ok: true, status: 200, body: '<!-- <div data-webring="ca"></div> --><a href="https://webring.ca/prev/alice">prev</a><a href="https://webring.ca/next/alice">next</a>' },
+    })
+
+    await runHealthCheck(kv)
+
+    const raw = await kv.get('health:alice')
+    const status: HealthStatus = JSON.parse(raw!)
+    expect(status.status).toBe('widget_missing')
+  })
+
+  it('marks as widget_missing when marker present but no links', async () => {
+    const kv = createMockKV({ members: JSON.stringify([alice]) })
+    mockFetch({
+      'https://alice.example.com': { ok: true, status: 200, body: '<div data-webring="ca"></div>' },
+    })
+
+    await runHealthCheck(kv)
+
+    const raw = await kv.get('health:alice')
+    const status: HealthStatus = JSON.parse(raw!)
+    expect(status.status).toBe('widget_missing')
+  })
+
+  it('sends a browser User-Agent', async () => {
+    const kv = createMockKV({ members: JSON.stringify([alice]) })
+    mockFetch({
+      'https://alice.example.com': { ok: true, status: 200, body: VALID_WIDGET },
+    })
+
+    await runHealthCheck(kv)
+
+    const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+    const headers = call[1]?.headers as Record<string, string>
+    expect(headers['User-Agent']).toMatch(/^Mozilla\/5\.0/)
   })
 
   it('marks members as unreachable on network error', async () => {
@@ -114,7 +196,7 @@ describe('runHealthCheck', () => {
     const inactiveAlice = { ...alice, active: false }
     const kv = createMockKV({ members: JSON.stringify([inactiveAlice]) })
     mockFetch({
-      'https://alice.example.com': { ok: true, status: 200, body: '<script src="https://webring.ca/embed.js"></script>' },
+      'https://alice.example.com': { ok: true, status: 200, body: VALID_WIDGET },
     })
 
     await runHealthCheck(kv)
@@ -127,7 +209,7 @@ describe('runHealthCheck', () => {
   it('does not update members if no status changes', async () => {
     const kv = createMockKV({ members: JSON.stringify([alice]) })
     mockFetch({
-      'https://alice.example.com': { ok: true, status: 200, body: '<div data-webring="ca"></div>' },
+      'https://alice.example.com': { ok: true, status: 200, body: VALID_WIDGET },
     })
     const putSpy = vi.spyOn(kv, 'put')
 
@@ -139,9 +221,10 @@ describe('runHealthCheck', () => {
 
   it('handles multiple members in parallel', async () => {
     const kv = createMockKV({ members: JSON.stringify([alice, bob]) })
+    const bobWidget = '<div data-webring="ca"></div><a href="https://webring.ca/prev/bob">prev</a><a href="https://webring.ca/next/bob">next</a>'
     mockFetch({
-      'https://alice.example.com': { ok: true, status: 200, body: '<div data-webring="ca"></div>' },
-      'https://bob.example.com': { ok: true, status: 200, body: '<script src="https://webring.ca/embed.js"></script>' },
+      'https://alice.example.com': { ok: true, status: 200, body: VALID_WIDGET },
+      'https://bob.example.com': { ok: true, status: 200, body: bobWidget },
     })
 
     await runHealthCheck(kv)

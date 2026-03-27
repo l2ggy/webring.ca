@@ -1,5 +1,18 @@
 import type { HealthStatus } from '../types'
 import { getMembers, setMembers, getHealthStatus, setHealthStatus } from '../data'
+import { detectWidget } from '../utils/widget'
+
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0',
+]
+
+function randomUA(): string {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
+}
 
 export async function runHealthCheck(kv: KVNamespace): Promise<void> {
   const members = await getMembers(kv)
@@ -14,11 +27,10 @@ export async function runHealthCheck(kv: KVNamespace): Promise<void> {
       try {
         const res = await fetch(member.url, {
           signal: AbortSignal.timeout(5000),
-          headers: { 'User-Agent': 'webring.ca health check' },
+          headers: { 'User-Agent': randomUA() },
         })
         const body = await res.text()
-        const lower = body.toLowerCase()
-        const hasWidget = lower.includes('data-webring="ca"') || lower.includes('webring.ca/embed.js')
+        const hasWidget = detectWidget(body)
 
         if (res.ok && hasWidget) {
           return {

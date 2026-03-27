@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { resolve } from 'node:path'
+import { detectWidget } from '../src/utils/widget'
 
 /**
  * Input schema for new member submissions.
@@ -142,9 +143,8 @@ for (const member of newMembers) {
       write(`- PASS: ${safeUrl} responded with HTTP ${res.status}`)
 
       const body = await res.text()
-      const lower = body.toLowerCase()
-      if (lower.includes('data-webring="ca"') || lower.includes('webring.ca/embed.js')) {
-        write('- PASS: Webring widget detected')
+      if (detectWidget(body)) {
+        write('- PASS: Webring widget detected (marker + prev/next links)')
       } else {
         write('- INFO: Widget not detected yet. Install the widget before or after merge — see https://github.com/stanleypangg/webring.ca#add-the-widget')
       }
