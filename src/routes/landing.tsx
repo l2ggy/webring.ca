@@ -3,6 +3,7 @@ import { raw } from 'hono/html'
 import type { Bindings } from '../types'
 import { getActiveMembers } from '../data'
 import { CANADA_VIEWBOX, CANADA_OUTLINE_PATH, CANADA_REGION_PATHS, projectToSvg } from '../lib/canada-map'
+import { MOUNTAINS_SVG, STARS_SVG, CN_TOWER_SVG, TREELINE_SVG, BEAVER_SVG, MOOSE_SVG, HOCKEY_SVG, SYRUP_SVG, TIMBITS_SVG } from '../lib/splash/assets'
 import Layout from '../templates/Layout'
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -431,15 +432,27 @@ app.get('/', async (c) => {
       <section class="splash" id="splash">
         <div class="splash-fallback-bg"></div>
         <canvas class="splash-canvas" id="aurora-canvas"></canvas>
-        <div class="splash-layer" id="splash-layer-1" data-depth="0.01"></div>
-        <div class="splash-layer" id="splash-layer-2" data-depth="0.02"></div>
+        <div class="splash-layer" id="splash-layer-1" data-depth="0.01">
+          {raw(STARS_SVG)}
+          {raw(MOUNTAINS_SVG)}
+        </div>
+        <div class="splash-layer" id="splash-layer-2" data-depth="0.02">
+          {raw(CN_TOWER_SVG)}
+          {raw(TREELINE_SVG)}
+        </div>
         <div class="splash-title" data-depth="0.03">
           <img src="https://upload.wikimedia.org/wikipedia/commons/d/d9/Flag_of_Canada_%28Pantone%29.svg" alt="Flag of Canada" class="splash-flag" />
           <div class="splash-label">A Canadian Webring</div>
           <h1>webring.ca</h1>
           <p>Builders. Designers. Creators.</p>
         </div>
-        <div class="splash-layer" id="splash-layer-4" data-depth="0.05"></div>
+        <div class="splash-layer" id="splash-layer-4" data-depth="0.05">
+          {raw(BEAVER_SVG)}
+          {raw(MOOSE_SVG)}
+          {raw(HOCKEY_SVG)}
+          {raw(SYRUP_SVG)}
+          {raw(TIMBITS_SVG)}
+        </div>
         <canvas class="splash-canvas" id="particle-canvas" style="z-index:5;"></canvas>
         <div class="splash-scroll">{raw('&darr;')}</div>
       </section>
@@ -619,6 +632,139 @@ app.get('/', async (c) => {
       });
     }
   });
+})();
+</script>`)}
+      {raw(`<script>
+(function() {
+  var splash = document.getElementById('splash');
+  if (!splash) return;
+
+  // ── Parallax ──
+  var layers = splash.querySelectorAll('[data-depth]');
+  var tX = window.innerWidth / 2, tY = window.innerHeight / 2;
+  var cX = tX, cY = tY;
+
+  window.addEventListener('mousemove', function(e) { tX = e.clientX; tY = e.clientY; });
+
+  function updateParallax() {
+    cX += (tX - cX) * 0.08;
+    cY += (tY - cY) * 0.08;
+    var w = splash.clientWidth, h = splash.clientHeight;
+    layers.forEach(function(l) {
+      var d = parseFloat(l.getAttribute('data-depth') || '0');
+      var ox = (cX - w / 2) * d;
+      var oy = (cY - h / 2) * d;
+      l.style.transform = 'translate(' + ox + 'px,' + oy + 'px)';
+    });
+    requestAnimationFrame(updateParallax);
+  }
+  requestAnimationFrame(updateParallax);
+
+  // ── Particles ──
+  var pc = document.getElementById('particle-canvas');
+  if (pc) {
+    var ctx = pc.getContext('2d');
+    var dpr = Math.min(window.devicePixelRatio, 2);
+    var pw = pc.clientWidth, ph = pc.clientHeight;
+    pc.width = pw * dpr; pc.height = ph * dpr;
+    ctx.scale(dpr, dpr);
+
+    var mobile = window.innerWidth <= 767;
+    var particles = [];
+
+    for (var i = 0; i < (mobile ? 15 : 30); i++) {
+      particles.push({ type: 'leaf', x: Math.random()*pw, y: Math.random()*ph,
+        size: 3+Math.random()*5, sx: (Math.random()-0.5)*0.3, sy: 0.2+Math.random()*0.4,
+        rot: Math.random()*Math.PI*2, rSpeed: (Math.random()-0.5)*0.02,
+        opacity: 0.15+Math.random()*0.25 });
+    }
+    for (var j = 0; j < (mobile ? 50 : 120); j++) {
+      particles.push({ type: 'snow', x: Math.random()*pw, y: Math.random()*ph,
+        size: 0.5+Math.random()*1.5, sx: (Math.random()-0.5)*0.2, sy: 0.1+Math.random()*0.3,
+        rot: 0, rSpeed: 0, opacity: 0.2+Math.random()*0.4 });
+    }
+
+    function animateParticles() {
+      ctx.clearRect(0, 0, pw, ph);
+      particles.forEach(function(p) {
+        p.x += p.sx; p.y += p.sy; p.rot += p.rSpeed;
+        if (p.y > ph + p.size) { p.y = -p.size; p.x = Math.random() * pw; }
+        if (p.x < -p.size) p.x = pw + p.size;
+        if (p.x > pw + p.size) p.x = -p.size;
+
+        if (p.type === 'leaf') {
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+          ctx.globalAlpha = p.opacity; ctx.fillStyle = '#c22';
+          ctx.beginPath();
+          ctx.moveTo(0, -p.size);
+          ctx.quadraticCurveTo(p.size*0.8, -p.size*0.3, p.size*0.4, p.size*0.5);
+          ctx.lineTo(0, p.size*0.3);
+          ctx.lineTo(-p.size*0.4, p.size*0.5);
+          ctx.quadraticCurveTo(-p.size*0.8, -p.size*0.3, 0, -p.size);
+          ctx.fill(); ctx.restore();
+        } else {
+          ctx.globalAlpha = p.opacity; ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+        }
+      });
+      requestAnimationFrame(animateParticles);
+    }
+    requestAnimationFrame(animateParticles);
+  }
+
+  // ── Aurora (three.js) ──
+  function tryAurora() {
+    if (!window.THREE) { setTimeout(tryAurora, 100); return; }
+    var ac = document.getElementById('aurora-canvas');
+    if (!ac) return;
+    var T = window.THREE;
+    var renderer = new T.WebGLRenderer({ canvas: ac, alpha: false, antialias: false });
+    renderer.setSize(ac.clientWidth, ac.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    var scene = new T.Scene();
+    var camera = new T.OrthographicCamera(-1,1,1,-1,0,1);
+
+    var vert = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position,1.0);}';
+    var frag = 'precision mediump float;uniform float uTime;uniform vec2 uRes;varying vec2 vUv;'
+      + 'vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}'
+      + 'vec2 mod289(vec2 x){return x-floor(x*(1.0/289.0))*289.0;}'
+      + 'vec3 permute(vec3 x){return mod289(((x*34.0)+1.0)*x);}'
+      + 'float snoise(vec2 v){const vec4 C=vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);vec2 i=floor(v+dot(v,C.yy));vec2 x0=v-i+dot(i,C.xx);vec2 i1;i1=(x0.x>x0.y)?vec2(1.0,0.0):vec2(0.0,1.0);vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;i=mod289(i);vec3 p=permute(permute(i.y+vec3(0.0,i1.y,1.0))+i.x+vec3(0.0,i1.x,1.0));vec3 m=max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.0);m=m*m;m=m*m;vec3 x=2.0*fract(p*C.www)-1.0;vec3 h=abs(x)-0.5;vec3 ox=floor(x+0.5);vec3 a0=x-ox;m*=1.79284291400159-0.85373472095314*(a0*a0+h*h);vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;return 130.0*dot(m,g);}'
+      + 'void main(){vec2 uv=vUv;float t=uTime*0.15;'
+      + 'float n1=snoise(vec2(uv.x*2.0+t,uv.y*0.5+t*0.3));'
+      + 'float n2=snoise(vec2(uv.x*1.5-t*0.7,uv.y*0.8+t*0.2));'
+      + 'float n3=snoise(vec2(uv.x*3.0+t*0.5,uv.y*0.3-t*0.1));'
+      + 'float band=smoothstep(0.15,0.45,uv.y)*smoothstep(0.85,0.55,uv.y);'
+      + 'vec3 green=vec3(0.1,0.8,0.4);vec3 purple=vec3(0.5,0.2,0.8);vec3 cyan=vec3(0.1,0.6,0.8);'
+      + 'float m1=smoothstep(-0.3,0.5,n1);float m2=smoothstep(-0.2,0.6,n2);float m3=smoothstep(-0.1,0.4,n3);'
+      + 'vec3 aurora=green*m1*0.4+purple*m2*0.3+cyan*m3*0.2;aurora*=band;'
+      + 'vec3 skyT=vec3(0.04,0.04,0.18);vec3 skyB=vec3(0.02,0.06,0.04);'
+      + 'vec3 sky=mix(skyB,skyT,uv.y);gl_FragColor=vec4(sky+aurora,1.0);}';
+
+    var mat = new T.ShaderMaterial({
+      vertexShader: vert,
+      fragmentShader: frag,
+      uniforms: { uTime:{value:0.0}, uRes:{value:new T.Vector2(ac.clientWidth,ac.clientHeight)} }
+    });
+    scene.add(new T.Mesh(new T.PlaneGeometry(2,2), mat));
+    var t0 = performance.now();
+    function anim() { mat.uniforms.uTime.value=(performance.now()-t0)/1000; renderer.render(scene,camera); requestAnimationFrame(anim); }
+    requestAnimationFrame(anim);
+
+    window.addEventListener('resize', function() { renderer.setSize(ac.clientWidth, ac.clientHeight); mat.uniforms.uRes.value.set(ac.clientWidth, ac.clientHeight); });
+  }
+  var testCanvas = document.createElement('canvas');
+  if (testCanvas.getContext('webgl') || testCanvas.getContext('experimental-webgl')) {
+    tryAurora();
+  }
+
+  // ── Scroll fade ──
+  var obs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      splash.style.opacity = Math.max(entry.intersectionRatio, 0);
+    });
+  }, { threshold: Array.from({length:20}, function(_,i){ return i/20; }) });
+  obs.observe(splash);
 })();
 </script>`)}
     </Layout>
