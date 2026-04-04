@@ -37,7 +37,7 @@ try {
 // ── Load base members ──
 let baseMembers: MemberInput[] = []
 try {
-  const ref = process.env.GITHUB_BASE_SHA
+  const ref = process.env.PR_BASE_SHA
     || (process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : 'main')
   const base = execSync(`git show ${ref}:members.json`, {
     encoding: 'utf-8',
@@ -61,7 +61,7 @@ for (const member of members) {
   const prev = baseBySlug.get(member.slug)
   if (!prev) continue
   const changed: string[] = []
-  for (const key of ['name', 'url', 'city', 'type'] as const) {
+  for (const key of ['name', 'url', 'city', 'type', 'active'] as const) {
     if (member[key] !== prev[key]) changed.push(key)
   }
   if (changed.length > 0) {
@@ -77,10 +77,10 @@ if (newMembers.length === 0 && removedMembers.length === 0 && editedMembers.leng
 }
 
 // ── Validate ──
-const existingCount = baseMembers.length
+const survivingBaseCount = members.filter((m) => baseSlugs.has(m.slug)).length
 const appendedCorrectly = newMembers.every((nm) => {
   const idx = members.findIndex((m) => m.slug === nm.slug)
-  return idx >= existingCount
+  return idx >= survivingBaseCount
 })
 
 let hasFailure = false
@@ -114,6 +114,22 @@ for (const { current, base, changedFields } of editedMembers) {
     const oldVal = sanitize(String(base[field as keyof MemberInput] ?? ''))
     const newVal = sanitize(String(current[field as keyof MemberInput] ?? ''))
     write(`- INFO: \`${field}\` changed: "${oldVal}" → "${newVal}"`)
+  }
+
+  // Re-validate changed fields
+  if (changedFields.includes('name') && !current.name) {
+    write('- FAIL: name cannot be empty')
+    memberFailed = true
+  }
+
+  if (changedFields.includes('type') && !VALID_TYPES.includes(current.type)) {
+    write(`- FAIL: type "${sanitize(current.type)}" is not valid. Must be one of: ${VALID_TYPES.join(', ')}`)
+    memberFailed = true
+  }
+
+  if (changedFields.includes('slug') && !/^[a-z0-9-]+$/.test(current.slug)) {
+    write(`- FAIL: slug "${sanitize(current.slug)}" must be lowercase alphanumeric and hyphens only`)
+    memberFailed = true
   }
 
   // Re-validate URL if it changed
