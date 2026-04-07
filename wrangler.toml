@@ -1,6 +1,7 @@
 name = "webring-ca"
 main = "src/index.tsx"
 compatibility_date = "2025-01-01"
+account_id = "d7eea82fe000a2664a45490c08ccb215"
 
 # Replace PLACEHOLDER_KV_ID and PLACEHOLDER_PREVIEW_KV_ID with actual KV namespace IDs.
 # Create them with: npx wrangler kv namespace create WEBRING
