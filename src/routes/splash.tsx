@@ -97,10 +97,13 @@ app.get('/', async (c) => {
                 <SplashContent ringEntrySlug={ringEntrySlug} />
               </section>
             </div>
-            <nav class="ring-dots" aria-label="Panel navigation">
-              {raw(dots)}
-            </nav>
           </div>
+          {/* Dots live outside #ring to escape its perspective stacking context,
+              ensuring they're always above the 3D-transformed panels and
+              isolating them from the carousel's touch/wheel event handlers. */}
+          <nav class="ring-dots" aria-label="Panel navigation">
+            {raw(dots)}
+          </nav>
 
           <script src="/splash.js"></script>
           {raw(`<script>window.__PREVIEW_MEMBERS = ${previewMembers}</script>`)}
