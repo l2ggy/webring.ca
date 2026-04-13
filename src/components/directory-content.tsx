@@ -17,6 +17,9 @@ export function DirectoryContent({ active }: { active: Member[] }) {
 
       {/* Left: member directory */}
       <div class="directory-list-wrap">
+        <button type="button" class="directory-arrow directory-arrow--prev" id="card-prev" aria-label="Previous member" disabled>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3 5 8l5 5"/></svg>
+        </button>
         <div class="directory-list">
           <div class="directory-header">
             <span class="directory-header-name">Name</span>
@@ -40,6 +43,9 @@ export function DirectoryContent({ active }: { active: Member[] }) {
             )
           })}
         </div>
+        <button type="button" class="directory-arrow directory-arrow--next" id="card-next" aria-label="Next member">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
         <div class="directory-pagination">
           <button class="directory-pagination-btn" id="page-prev" disabled aria-label="Previous page">&larr; Prev</button>
           <span id="page-info"></span>

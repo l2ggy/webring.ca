@@ -490,8 +490,13 @@ function init() {
     const card = document.querySelector<HTMLElement>(`.directory-row[data-member="${slug}"]`)
     document.querySelectorAll('.directory-row.is-selected').forEach(el => el.classList.remove('is-selected'))
     card?.classList.add('is-selected')
-    if (scrollCard) {
-      card?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    if (scrollCard && card) {
+      if (isTouchDevice && isMobileCardLayout()) {
+        const idx = rows.indexOf(card as HTMLElement)
+        if (idx >= 0) scrollToCardIndex(idx)
+      } else {
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+      }
     }
 
     // Freeze drift so the selected node doesn't slide away
@@ -635,6 +640,48 @@ function init() {
 
   // Pagination — recalculate page size when the directory panel settles
   const directoryListEl = document.querySelector<HTMLElement>('.directory-list')
+
+  // Mobile card arrow navigation
+  const cardPrevBtn = document.getElementById('card-prev') as HTMLButtonElement | null
+  const cardNextBtn = document.getElementById('card-next') as HTMLButtonElement | null
+  let mobileCardIndex = 0
+
+  function isMobileCardLayout(): boolean {
+    if (!directoryListEl) return false
+    return getComputedStyle(directoryListEl).flexDirection === 'row'
+  }
+
+  function getCardGap(): number {
+    if (!directoryListEl) return 12
+    return parseFloat(getComputedStyle(directoryListEl).gap) || 12
+  }
+
+  function getVisibleCardCount(): number {
+    if (!directoryListEl) return 1
+    const listWidth = directoryListEl.clientWidth
+    const cardWidth = 140
+    const gap = getCardGap()
+    return Math.max(1, Math.floor((listWidth + gap) / (cardWidth + gap)))
+  }
+
+  function updateCardArrows() {
+    if (!cardPrevBtn || !cardNextBtn || !isMobileCardLayout()) return
+    cardPrevBtn.disabled = mobileCardIndex <= 0
+    cardNextBtn.disabled = mobileCardIndex >= rows.length - getVisibleCardCount()
+  }
+
+  function scrollToCardIndex(index: number) {
+    if (!directoryListEl || !isMobileCardLayout()) return
+    const maxIndex = Math.max(0, rows.length - getVisibleCardCount())
+    mobileCardIndex = Math.max(0, Math.min(index, maxIndex))
+    const cardWidth = 140
+    const gap = getCardGap()
+    directoryListEl.scrollTo({ left: mobileCardIndex * (cardWidth + gap), behavior: 'smooth' })
+    updateCardArrows()
+  }
+
+  cardPrevBtn?.addEventListener('click', () => scrollToCardIndex(mobileCardIndex - 1))
+  cardNextBtn?.addEventListener('click', () => scrollToCardIndex(mobileCardIndex + 1))
   const headerEl = document.querySelector<HTMLElement>('.directory-header')
   const directoryInnerEl = directoryListEl?.closest<HTMLElement>('.directory-inner') ?? null
   const directoryListWrapEl = directoryListEl?.closest<HTMLElement>('.directory-list-wrap') ?? null
@@ -754,8 +801,12 @@ function init() {
 
   // Initial render with default size
   renderPage()
+  updateCardArrows()
   schedulePageSizeRecalc()
-  window.addEventListener('resize', schedulePageSizeRecalc)
+  window.addEventListener('resize', () => {
+    schedulePageSizeRecalc()
+    updateCardArrows()
+  })
   document.fonts?.ready.then(() => {
     schedulePageSizeRecalc()
   }).catch(() => undefined)
@@ -827,6 +878,7 @@ function init() {
         searchMatches = null
         clearSearchState()
         renderPage()
+        scrollToCardIndex(0)
         resetViewBox()
         simulation.alphaTarget(driftAlpha).restart()
         return

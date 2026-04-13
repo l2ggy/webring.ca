@@ -429,6 +429,11 @@ body {
   cursor: default;
 }
 
+/* Mobile card arrow buttons -- hidden on desktop */
+.directory-arrow {
+  display: none;
+}
+
 .directory-header {
   display: flex;
   align-items: center;
@@ -766,6 +771,9 @@ body.has-ring-fullscreen {
     overflow: visible;
     padding: 0;
     max-height: 130px;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
   }
 
   .directory-header {
@@ -776,25 +784,44 @@ body.has-ring-fullscreen {
     display: none;
   }
 
+  .directory-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 72px;
+    background: none;
+    border: none;
+    color: var(--fg-muted);
+    cursor: pointer;
+    padding: 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.15s, opacity 0.15s;
+  }
+
+  .directory-arrow:disabled {
+    opacity: 0.2;
+    cursor: default;
+  }
+
+  .directory-arrow:not(:disabled):active {
+    color: var(--accent);
+  }
+
   .directory-list {
     flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    scroll-padding-inline: 1rem;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
     gap: 0.75rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
     max-height: none;
-    scrollbar-width: none;
+    flex: 1;
+    min-width: 0;
   }
 
   .directory-list::after {
-    display: none;
-  }
-
-  .directory-list::-webkit-scrollbar {
     display: none;
   }
 
@@ -809,8 +836,8 @@ body.has-ring-fullscreen {
     padding: 0.6rem 0.65rem;
     border: 1px solid var(--border);
     border-radius: 8px;
-    scroll-snap-align: start;
     overflow: hidden;
+    transition: transform 0.3s ease, opacity 0.3s ease;
   }
 
   .directory-row-name {
